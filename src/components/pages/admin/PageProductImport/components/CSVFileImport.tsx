@@ -1,7 +1,7 @@
 import React from "react";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import axios from "axios";
+import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
 type CSVFileImportProps = {
   url: string;
@@ -30,21 +30,44 @@ export default function CSVFileImport({ url, title }: CSVFileImportProps) {
       return;
     }
 
-    const response = await axios({
+    const requestParameters: AxiosRequestConfig = {
       method: "GET",
       url,
+      headers: {},
       params: {
         name: encodeURIComponent(file.name),
       },
-    });
-    console.log("File to upload: ", file.name);
-    console.log("Uploading to: ", response.data.url);
-    const result = await fetch(response.data.url, {
-      method: "PUT",
-      body: file,
-    });
-    console.log("Result: ", result);
-    setFile(undefined);
+    };
+
+    const authHeader = localStorage.getItem("authorization_token");
+
+    if (authHeader) {
+      requestParameters.headers!.Authorization = `Basic ${authHeader}`;
+    }
+
+    try {
+      const response = await axios(requestParameters);
+
+      console.log("File to upload: ", file.name);
+      console.log("Uploading to: ", response.data.url);
+  
+      const result = await fetch(response.data.url, {
+        method: "PUT",
+        body: file,
+      });
+  
+      console.log("Result: ", result);
+  
+      setFile(undefined);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const { response } = error;
+
+        if (response?.status === 401 || response?.status === 403) {
+          alert(`Authorization error. Error code ${response.status}.`)
+        } 
+      }
+    }
   };
   return (
     <Box>
